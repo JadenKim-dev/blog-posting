@@ -47,7 +47,7 @@ select * from EMPLOYEE where id = 1
 
 RDB에서 primary key가 반드시 존재하도록 제한한 이유는 무엇일까?
 
-첫번째 이유는 각 테이블이 서로 관계를 맺게 하기 위함이다.  
+이는 각 테이블이 서로 관계를 맺게 하기 위함이다.  
 관계형 데이터베이스의 각 테이블은 외래키를 이용하여 서로를 참조하고, 이를 통해 관계를 맺는다.  
 이 때 외래키는 주로 상대 테이블의 primary key를 사용한다.
 
@@ -77,3 +77,49 @@ primary key의 경우에는 not null, unique 속성을 지키도록 database sys
 
 개발을 하다보면 primary key에 auto_increment 속성을 부여하는 경우가 많다.  
 이러한 속성이 필요한 이유는 무엇일까?
+
+그 원인은 여러 명의 클라이언트가 동시에 데이터베이스를 사용할 수 있다는 점에서 시작한다.
+
+위에서 예시로 들은 EMPLOYEE 테이블에 대해서 세 명의 클라이언트가 동시에 값을 삽입하려고 시도한다고 가정해보자.
+
+세 명 모두 EMPLOYEE 테이블을 조회해보고, 현재 4번 id 까지만 입력되어있음을 확인한 뒤 새로운 데이터는 5번 id로 입력하려고 시도할 것이다.
+
+```sql
+-- 클라이언트 A
+insert into EMPLOYEE(id, name, gender, department) VALUES
+    (5, '김미진', 0, '마케팅')
+
+-- 클라이언트 B
+insert into EMPLOYEE(id, name, gender, department) VALUES
+    (5, '최정근', 1, '개발')
+
+-- 클라이언트 C
+insert into EMPLOYEE(id, name, gender, department) VALUES
+    (5, '김상훈', 1, '영업')
+```
+
+이 경우, 세 명 중 한 명은 운 좋게 통과하겠지만, 나머지 두 명은 아래와 같은 에러 메시지를 보게 될 것이다.
+
+```bash
+Duplicate entry '5' for key 'employee.PRIMARY'
+```
+
+위와 같은 상황이 발생하지 않도록 하기 위해 auto_increment 속성을 사용한다.  
+auto_increment 속성을 가진 컬럼은 새로운 데이터가 입력 될 때 자동으로 1씩 증가된 값이 저장된다.  
+따라서 사용자는 아래와 같은 쿼리문을 사용하여 데이터를 입력하게 된다.
+
+```sql
+-- 클라이언트 A
+insert into EMPLOYEE(name, gender, department) VALUES
+    ('김미진', 0, '마케팅')
+
+-- 클라이언트 B
+insert into EMPLOYEE(name, gender, department) VALUES
+    ('최정근', 1, '개발')
+
+-- 클라이언트 C
+insert into EMPLOYEE(name, gender, department) VALUES
+    ('김상훈', 1, '영업')
+```
+
+이 때 각 클라이언트가 입력한 데이터들은 id 값을 자동으로 부여받게 되고, 에러 메시지 없이 데이터를 입력할 수 있게 된다.
