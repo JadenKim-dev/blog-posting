@@ -1,12 +1,12 @@
-저번에 input-output 기반의 테스트가 이상적이라는 글을 썼다.
+저번에 input-output 기반의 테스트가 이상적이라는 글을 썼다.  
 이 글에서는 javascript로 작성된 Node.js 프로젝트에서 input-output 기반의 테스트 코드를 작성하는 방법을 다루려고 한다.
 
-typescript로 프로젝트가 구성되어 있다면 더 나은 해결책이 많지만, 레거시 코드를 다루다보면 javascript로 되어 있는 프로젝트에서 작업을 해야 하는 경우가 많다.
+typescript로 프로젝트가 구성되어 있다면 더 나은 해결책이 많지만, 레거시 코드를 다루다보면 javascript로 되어 있는 프로젝트에서 작업을 해야 하는 경우가 많다.  
 나와 같이 레거시 환경에서 단위 테스트를 시도해보려고 하는 사람들에게 이 글을 바친다...😇
 
 ## 1. 의존성을 가진 모듈 확인하기
 
-먼저 테스트 대상이 되는 코드를 분석해서, 해당 메서드가 어떤 모듈에 의존성을 가지는지 파악해야 한다.
+먼저 테스트 대상이 되는 코드를 분석해서, 해당 메서드가 어떤 모듈에 의존성을 가지는지 파악해야 한다.  
 저번 글에서 다뤘던 getPosts 메서드를 다시 살펴보자.
 
 <img src="https://velog.velcdn.com/images/jadenkim5179/post/932389a2-0d62-4203-8fb8-ba6f2cd883aa/image.png" width="60%" height="n%">
@@ -23,11 +23,11 @@ getPosts는 크게 3개의 작업을 한다.
 
 ## 2. 외부 의존 모듈을 mock으로 감싸기
 
-테스트 상황에서 매번 외부 API를 직접 호출하거나, db와 통신을 해야 한다면 테스트 시간이 매우 길어질 수밖에 없다.
+테스트 상황에서 매번 외부 API를 직접 호출하거나, db와 통신을 해야 한다면 테스트 시간이 매우 길어질 수밖에 없다.  
 단위 테스트 상황에서는 해당 메서드들을 stubbing해서 구현한 후, 이를 테스트 대상 메서드가 사용하도록 하는 것이 바람직하다.
 
-다만 문제는, 일반적인 레거시 Node.js 프로젝트는 의존성 주입을 사용하고 있지 않다는 것이다.
-따라서 테스트 대상 메서드가 stubbing한 구현체를 사용하게 하기 위해서는 **모듈 자체를 모킹해야 한다.**
+다만 문제는, 일반적인 레거시 Node.js 프로젝트는 의존성 주입을 사용하고 있지 않다는 것이다.  
+따라서 테스트 대상 메서드가 stubbing한 구현체를 사용하게 하기 위해서는 **모듈 자체를 모킹해야 한다.**  
 모듈 자체를 모킹하면, 해당 모듈을 참조하는 모든 곳에서 모킹된 내용을 바탕으로 동작하게 할 수 있다.
 
 jest.mock()을 사용하면 테스트 대상 모듈을 손쉽게 모킹할 수 있다.
@@ -59,10 +59,10 @@ const mockGetVelogUidByUserId = ({ userId }) =>
   Promise.resolve(VELOG_UID_DATA_LIST.find((data) => data.userId === userId));
 ```
 
-임의의 velog_uid 정보의 리스트를 담고 있는 `VELOG_UID_DATA_LIST`를 정의했다.
+임의의 velog_uid 정보의 리스트를 담고 있는 `VELOG_UID_DATA_LIST`를 정의했다.  
 `mockGetVelogUidByUserId`는 매개변수로 userId를 받아서, 해당 userId가 담겨있는 데이터를 `VELOG_UID_DATA_LIST`에서 찾아서 반환한다.
 
-데이터베이스 이용 여부를 제외하면, `mockGetVelogUidByUserId`는 `velogUidRepository.getByUserId`와 하는 역할이 비슷하다.
+데이터베이스 이용 여부를 제외하면, `mockGetVelogUidByUserId`는 `velogUidRepository.getByUserId`와 하는 역할이 비슷하다.  
 이와 같이 기능을 단순화해서 stub 메서드를 구현하면 된다.
 
 이번엔 `velogPostAxios.reqGetPosts`에 대한 stub을 구현해보자.
@@ -87,17 +87,53 @@ const mockReqGetVelogPost = ({ velogUid, velogToken }) =>
     : Promise.reject(VelogAxiosError);
 ```
 
-`mockReqGetVelogPost`는 매개변수로 velogUid, velogToken를 받아서, 이것이 미리 정의해둔 데이터와 일치하는지를 확인한다.
+`mockReqGetVelogPost`는 매개변수로 velogUid, velogToken를 받아서, 이것이 미리 정의해둔 데이터와 일치하는지를 확인한다.  
 일치할 경우 유효한 요청이라고 판단해서 `VELOG_POST_LIST`를 resolve 하고, 일치하지 않다면 VelogAxiosError를 reject 한다.
 
-## 4. stub한 메서드를 모킹한 모듈에 적용시키기
+## 4. stub한 메서드 재활용을 위해 class로 리팩토링하기
+위와 같이 구현한 stub 메서드를 여러 테스트 코드에서 재활용하기 위해서는 stub 메서드들을 담고 있는 파일을 구분시킬 필요가 있다.  
+테스트 코드에서는 해당 파일로부터 메서드를 import 하도록 구성해야 한다.  
+
+이렇게 메서드를 모아놓는데 가장 적절한 데이터 구조는 class 라고 판단했다.  
+그 이유는 특정 데이터를 초기에 넘겨주고 각 stub 메서드에서 이 데이터를 사용하는 구조가 필요했는데, 이 경우에는 class가 가장 적절했기 때문이다.
+
+만약 stub 메서드에서 사용할 데이터(위 예시의 VELOG_UID_DATA_LIST, VELOG_POST_LIST)까지 stub를 모아놓은 파일 안에 위치시킨다면, 테스트 코드 안에서 데이터가 명시적으로 드러나지 않게 된다.  
+이 경우 테스트 코드를 이해하기 위해 stub 메서드를 담고 있는 파일까지 확인해야 하기 때문에 가독성을 저해할 수 있다.  
+따라서 stub 메서드를 사용하는 측에서 파라미터 등으로 사용할 데이터를 넘겨주도록 구성하는 편이 유연성과 가독성 측면에서 적절하다.  
+
+생성자에서 stub 메서드들이 사용할 데이터를 받고, stub 메서드를 메서드로 가지고 있는 구조는 다음과 같이 구성할 수 있다.
+
+```javascript
+class VelogUidRepositoryStub {
+  #velogUidDataList = [];
+
+  constructor(velogUidDataList) {
+    this.velogUidDataList = velogUidDataList;
+  }
+
+  async getVelogUidByUserId({ velogUid, velogToken }) {
+    isValidReq({ velogUid, velogToken })
+      ? Promise.resolve(VELOG_POST_LIST)
+      : Promise.reject(VelogAxiosError)
+  }
+  
+}
+```
+
+
+### (2) 따라서 데이터 + 메서드를 담고 있는 형태의 데이터 구조를 사용해야 한다.
+파라미터를 
+
+
+
+## 5. stub한 메서드를 모킹한 모듈에 적용시키기
 
 이제 위와 같이 구현해 둔 stub 메서드를 모킹한 모듈에 적용시켜야 한다.
 `jest.mock()`으로 모듈 자체를 모킹해두었기 때문에, 다음과 같이 간단하게 stub한 메서드를 적용시킬 수 있다.
 
 ```js
-velogUidRepository.getByUserId.mockImplementation(mockGetVelogUidByUserId);
-velogPostAxios.reqGetPosts.mockImplementation(mockReqGetVelogPost);
+velogUidRepository.getByUserId = jest.fn().mockImplementation(mockGetVelogUidByUserId);
+velogPostAxios.reqGetPosts  = jest.fn().mockImplementation(mockReqGetVelogPost);
 ```
 
 3,4 단계에서 작성한 내용을 종합하면 아래와 같다.
@@ -142,7 +178,7 @@ describe("velogPostService", () => {
 이렇게 하는 이유는 필요에 따라서 특정 테스트 케이스에서는 beforeEach에서 구현한 것과 다른 stub 메서드를 해당 mock에 적용시킬 수도 있기 때문이다.
 이런 특이 케이스에 대한 테스트가 끝난 후에는 기본 stub 메서드로 매번 변경해주기 위해서 beforeEach에 mock 적용 부분을 넣었다.
 
-## 4. 실제 테스트 케이스 작성
+## 6. 실제 테스트 케이스 작성
 
 이제 각 테스트 케이스에 대한 테스트 코드를 작성하면 된다.
 
