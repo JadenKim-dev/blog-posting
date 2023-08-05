@@ -97,10 +97,6 @@ const mockReqGetVelogPost = ({ velogUid, velogToken }) =>
 이렇게 메서드를 모아놓는데 가장 적절한 데이터 구조는 class 라고 판단했다.  
 그 이유는 특정 데이터를 초기에 넘겨주고 각 stub 메서드에서 이 데이터를 사용하는 구조가 필요했는데, 이 경우에는 class가 가장 적절했기 때문이다.
 
-만약 stub 메서드에서 사용할 데이터(위 예시의 VELOG_UID_DATA_LIST, VELOG_POST_LIST)까지 stub를 모아놓은 파일 안에 위치시킨다면, 테스트 코드 안에서 데이터가 명시적으로 드러나지 않게 된다.  
-이 경우 테스트 코드를 이해하기 위해 stub 메서드를 담고 있는 파일까지 확인해야 하기 때문에 가독성을 저해할 수 있다.  
-따라서 stub 메서드를 사용하는 측에서 파라미터 등으로 사용할 데이터를 넘겨주도록 구성하는 편이 유연성과 가독성 측면에서 적절하다.  
-
 생성자에서 stub 메서드들이 사용할 데이터를 받고, stub 메서드를 메서드로 가지고 있는 구조는 다음과 같이 구성할 수 있다.
 
 ```javascript
@@ -111,20 +107,19 @@ class VelogUidRepositoryStub {
     this.velogUidDataList = velogUidDataList;
   }
 
-  async getVelogUidByUserId({ velogUid, velogToken }) {
-    isValidReq({ velogUid, velogToken })
-      ? Promise.resolve(VELOG_POST_LIST)
-      : Promise.reject(VelogAxiosError)
+  getVelogUidByUserId({ velogUid, velogToken }) {
+    if(velogUid === VELOG_UID && velogToken === VELOG_TOKEN) {
+      return Promise.resolve(VELOG_POST_LIST);
+    }
+    return Promise.reject(VelogAxiosError);
   }
   
 }
 ```
 
-
-### (2) 따라서 데이터 + 메서드를 담고 있는 형태의 데이터 구조를 사용해야 한다.
-파라미터를 
-
-
+만약 stub 메서드에서 사용할 데이터(위 예시의 velogUidDataList)를 stub 파일에서 고정된 값으로 정의해놓는다면, 테스트 코드 안에서 데이터가 명시적으로 드러나지 않게 된다.  
+이 경우 테스트 코드를 이해하기 위해 stub 메서드를 담고 있는 파일까지 확인해야 하기 때문에 가독성을 저해할 수 있다.  
+따라서 stub 메서드를 사용하는 측에서 생성자를 통해 사용할 데이터를 넘겨주도록 구성하는 편이 유연성과 가독성 측면에서 적절하다.  
 
 ## 5. stub한 메서드를 모킹한 모듈에 적용시키기
 
